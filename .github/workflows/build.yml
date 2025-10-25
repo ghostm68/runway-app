@@ -75,6 +75,21 @@ jobs:
           sed -i 's/<application/<application\n        android:usesCleartextTraffic="true"\n        android:networkSecurityConfig="@xml\/network_security_config"/' "$MANIFEST"
         fi
 
+    - name: Create network security config
+      run: |
+        mkdir -p android/app/src/main/res/xml
+        cat > android/app/src/main/res/xml/network_security_config.xml << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <network-security-config>
+            <base-config cleartextTrafficPermitted="true">
+                <trust-anchors>
+                    <certificates src="system" />
+                </trust-anchors>
+            </base-config>
+        </network-security-config>
+        EOF
+        echo "network_security_config.xml created successfully"
+
     - name: Sync Capacitor
       run: npx cap sync android
 
