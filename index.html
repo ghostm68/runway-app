@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>runway</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0D0D0D;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: #1a1a1a;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #E6A800;
+        }
+        .title-section { display: flex; align-items: center; gap: 12px; }
+        .app-title { font-size: 20px; font-weight: 600; color: #E6A800; }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4CAF50;
+            box-shadow: 0 0 8px #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        .status-indicator.offline {
+            background: #f44336;
+            box-shadow: 0 0 8px #f44336;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .controls { display: flex; gap: 12px; align-items: center; }
+        .refresh-btn {
+            background: #E6A800;
+            border: none;
+            color: #0D0D0D;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .last-update { font-size: 11px; color: #888; }
+        .iframe-container { flex: 1; position: relative; overflow: hidden; }
+        #mirror-frame { width: 100%; height: 100%; border: none; }
+        .offline-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(13, 13, 13, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .offline-overlay.show { display: flex; }
+        .offline-icon { font-size: 64px; }
+        .offline-text { font-size: 18px; font-weight: 600; }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: transform 0.3s ease;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title-section">
+            <div class="app-title">runway</div>
+            <div class="status-indicator" id="status"></div>
+        </div>
+        <div class="controls">
+            <div class="last-update" id="time">Loading...</div>
+            <button class="refresh-btn" id="refresh">↻ Refresh</button>
+        </div>
+    </div>
+    <div class="iframe-container">
+        <iframe id="mirror-frame" src="https://inkrealm.info/runway"></iframe>
+        <div class="offline-overlay" id="offline">
+            <div class="offline-icon">⚠️</div>
+            <div class="offline-text">No Internet Connection</div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        const iframe = document.getElementById('mirror-frame');
+        const refreshBtn = document.getElementById('refresh');
+        const status = document.getElementById('status');
+        const offline = document.getElementById('offline');
+        const toast = document.getElementById('toast');
+        const time = document.getElementById('time');
+
+        function updateTime() {
+            const now = new Date();
+            time.textContent = 'Updated: ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function refresh() {
+            if (!navigator.onLine) {
+                showToast('No internet');
+                return;
+            }
+            showToast('Refreshing...');
+            iframe.src = iframe.src.split('?')[0] + '?' + Date.now();
+        }
+
+        function checkOnline() {
+            if (navigator.onLine) {
+                status.classList.remove('offline');
+                offline.classList.remove('show');
+            } else {
+                status.classList.add('offline');
+                offline.classList.add('show');
+            }
+        }
+
+        refreshBtn.addEventListener('click', refresh);
+        iframe.addEventListener('load', updateTime);
+        window.addEventListener('online', () => { checkOnline(); showToast('Back online'); refresh(); });
+        window.addEventListener('offline', () => { checkOnline(); showToast('Connection lost'); });
+
+        checkOnline();
+        setInterval(() => { if (navigator.onLine) refresh(); }, 5 * 60 * 1000);
+        updateTime();
+    </script>
+</body>
+</html>
