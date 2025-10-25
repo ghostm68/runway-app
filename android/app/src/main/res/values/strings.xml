@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">runway</string>
+    <string name="title_activity_main">runway</string>
+    <string name="package_name">app.inkrealm.runway</string>
+    <string name="custom_url_scheme">app.inkrealm.runway</string>
+</resources>
