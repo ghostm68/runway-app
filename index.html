@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
     <title>runway</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: #0D0D0D;
             color: #fff;
             overflow: hidden;
@@ -15,6 +21,7 @@
             display: flex;
             flex-direction: column;
         }
+
         .header {
             background: #1a1a1a;
             padding: 12px 16px;
@@ -22,9 +29,21 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 2px solid #E6A800;
+            flex-shrink: 0;
         }
-        .title-section { display: flex; align-items: center; gap: 12px; }
-        .app-title { font-size: 20px; font-weight: 600; color: #E6A800; }
+
+        .title-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .app-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #E6A800;
+        }
+
         .status-indicator {
             width: 10px;
             height: 10px;
@@ -33,12 +52,23 @@
             box-shadow: 0 0 8px #4CAF50;
             animation: pulse 2s infinite;
         }
+
         .status-indicator.offline {
             background: #f44336;
             box-shadow: 0 0 8px #f44336;
         }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .controls { display: flex; gap: 12px; align-items: center; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
         .refresh-btn {
             background: #E6A800;
             border: none;
@@ -47,24 +77,68 @@
             border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.3s ease;
             font-size: 14px;
         }
-        .last-update { font-size: 11px; color: #888; }
-        .iframe-container { flex: 1; position: relative; overflow: hidden; }
-        #mirror-frame { width: 100%; height: 100%; border: none; }
+
+        .refresh-btn:active {
+            transform: scale(0.95);
+            background: #cc9500;
+        }
+
+        .last-update {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .iframe-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #mirror-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #0D0D0D;
+        }
+
         .offline-overlay {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: rgba(13, 13, 13, 0.95);
             display: none;
             justify-content: center;
             align-items: center;
             flex-direction: column;
             gap: 16px;
+            z-index: 1000;
         }
-        .offline-overlay.show { display: flex; }
-        .offline-icon { font-size: 64px; }
-        .offline-text { font-size: 18px; font-weight: 600; }
+
+        .offline-overlay.show {
+            display: flex;
+        }
+
+        .offline-icon {
+            font-size: 64px;
+            color: #f44336;
+        }
+
+        .offline-text {
+            font-size: 18px;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .offline-subtext {
+            font-size: 14px;
+            color: #888;
+        }
+
         .toast {
             position: fixed;
             bottom: 20px;
@@ -75,76 +149,165 @@
             padding: 12px 24px;
             border-radius: 8px;
             font-size: 14px;
+            z-index: 2000;
             transition: transform 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         }
-        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #E6A800;
+            font-size: 14px;
+            display: none;
+        }
+
+        .loading-indicator.show {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #333;
+            border-top: 4px solid #E6A800;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="title-section">
             <div class="app-title">runway</div>
-            <div class="status-indicator" id="status"></div>
+            <div class="status-indicator" id="status-indicator"></div>
         </div>
         <div class="controls">
-            <div class="last-update" id="time">Loading...</div>
-            <button class="refresh-btn" id="refresh">↻ Refresh</button>
+            <div class="last-update" id="last-update">Loading...</div>
+            <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
         </div>
     </div>
+
     <div class="iframe-container">
+        <div class="loading-indicator" id="loading">
+            <div class="spinner"></div>
+            <div>Loading runway...</div>
+        </div>
         <iframe id="mirror-frame" src="https://inkrealm.info/runway"></iframe>
-        <div class="offline-overlay" id="offline">
+        <div class="offline-overlay" id="offline-overlay">
             <div class="offline-icon">⚠️</div>
             <div class="offline-text">No Internet Connection</div>
+            <div class="offline-subtext">Please check your connection and try again</div>
         </div>
     </div>
+
     <div class="toast" id="toast"></div>
+
     <script>
         const iframe = document.getElementById('mirror-frame');
-        const refreshBtn = document.getElementById('refresh');
-        const status = document.getElementById('status');
-        const offline = document.getElementById('offline');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const statusIndicator = document.getElementById('status-indicator');
+        const offlineOverlay = document.getElementById('offline-overlay');
         const toast = document.getElementById('toast');
-        const time = document.getElementById('time');
+        const lastUpdateEl = document.getElementById('last-update');
+        const loadingIndicator = document.getElementById('loading');
 
-        function updateTime() {
+        let autoRefreshInterval;
+        const AUTO_REFRESH_TIME = 5 * 60 * 1000; // 5 minutes
+
+        function updateTimestamp() {
             const now = new Date();
-            time.textContent = 'Updated: ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const time = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+            lastUpdateEl.textContent = `Updated: ${time}`;
         }
 
-        function showToast(msg) {
-            toast.textContent = msg;
+        function showToast(message) {
+            toast.textContent = message;
             toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2000);
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
         }
 
-        function refresh() {
+        function refreshFrame() {
             if (!navigator.onLine) {
-                showToast('No internet');
+                showToast('No internet connection');
                 return;
             }
+
             showToast('Refreshing...');
-            iframe.src = iframe.src.split('?')[0] + '?' + Date.now();
+            loadingIndicator.classList.add('show');
+            
+            // Force reload by changing src
+            const currentSrc = iframe.src;
+            iframe.src = '';
+            setTimeout(() => {
+                iframe.src = currentSrc + '?' + new Date().getTime();
+            }, 100);
         }
 
-        function checkOnline() {
+        function checkOnlineStatus() {
             if (navigator.onLine) {
-                status.classList.remove('offline');
-                offline.classList.remove('show');
+                statusIndicator.classList.remove('offline');
+                offlineOverlay.classList.remove('show');
             } else {
-                status.classList.add('offline');
-                offline.classList.add('show');
+                statusIndicator.classList.add('offline');
+                offlineOverlay.classList.add('show');
             }
         }
 
-        refreshBtn.addEventListener('click', refresh);
-        iframe.addEventListener('load', updateTime);
-        window.addEventListener('online', () => { checkOnline(); showToast('Back online'); refresh(); });
-        window.addEventListener('offline', () => { checkOnline(); showToast('Connection lost'); });
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            autoRefreshInterval = setInterval(() => {
+                if (navigator.onLine) {
+                    refreshFrame();
+                }
+            }, AUTO_REFRESH_TIME);
+        }
 
-        checkOnline();
-        setInterval(() => { if (navigator.onLine) refresh(); }, 5 * 60 * 1000);
-        updateTime();
+        // Event listeners
+        refreshBtn.addEventListener('click', refreshFrame);
+
+        iframe.addEventListener('load', () => {
+            loadingIndicator.classList.remove('show');
+            updateTimestamp();
+        });
+
+        window.addEventListener('online', () => {
+            checkOnlineStatus();
+            showToast('Back online');
+            refreshFrame();
+        });
+
+        window.addEventListener('offline', () => {
+            checkOnlineStatus();
+            showToast('Connection lost');
+        });
+
+        // Initialize
+        checkOnlineStatus();
+        startAutoRefresh();
+        updateTimestamp();
+
+        // Show loading initially
+        loadingIndicator.classList.add('show');
     </script>
 </body>
 </html>
