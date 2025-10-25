@@ -1,0 +1,25 @@
+{
+  "appId": "app.inkrealm.runway",
+  "appName": "runway",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  }
+}
+```
+
+**File 4: `.gitignore`**
+```
+node_modules/
+www/
+dist/
+.DS_Store
+```
+
+## Step 3: Initialize Capacitor Locally
+
+Open terminal/command prompt in your project folder:
+```
+npm install
+npm run build
+npx cap add android
