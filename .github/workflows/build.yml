@@ -90,8 +90,17 @@ jobs:
         EOF
         echo "network_security_config.xml created successfully"
 
-    - name: Sync Capacitor
+    - name: Sync Capacitor to generate remaining files
       run: npx cap sync android
+
+    - name: Verify build.gradle exists
+      run: |
+        if [ ! -f "android/app/build.gradle" ]; then
+          echo "ERROR: build.gradle not found after sync!"
+          echo "Listing android/app directory:"
+          ls -la android/app/ || echo "android/app not found"
+          exit 1
+        fi
 
     - name: Update version code
       run: |
