@@ -1,0 +1,106 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build web assets
+      run: |
+        mkdir -p www
+        cp index.html www/
+
+    - name: Verify icon exists
+      run: |
+        if [ -f "icon.png" ]; then
+          echo "Icon found in root"
+        elif [ -f "android/app/src/icon.png" ]; then
+          echo "Icon found in android/app/src, copying to root"
+          cp android/app/src/icon.png icon.png
+        else
+          echo "No icon found, skipping icon generation"
+        fi
+
+    - name: Initialize Android if needed
+      run: |
+        if [ ! -d "android" ]; then
+          echo "Initializing Android platform..."
+          npx cap add android
+        fi
+
+    - name: Generate Android icons
+      run: npx @capacitor/assets generate --android
+      continue-on-error: true
+
+    - name: Create network security config
+      run: |
+        mkdir -p android/app/src/main/res/xml
+        cat > android/app/src/main/res/xml/network_security_config.xml << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <network-security-config>
+            <base-config cleartextTrafficPermitted="true">
+                <trust-anchors>
+                    <certificates src="system" />
+                </trust-anchors>
+            </base-config>
+        </network-security-config>
+        EOF
+
+    - name: Update AndroidManifest
+      run: |
+        MANIFEST="android/app/src/main/AndroidManifest.xml"
+        if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
+          sed -i 's/<application/<application\n        android:usesCleartextTraffic="true"\n        android:networkSecurityConfig="@xml\/network_security_config"/' "$MANIFEST"
+        fi
+
+    - name: Sync Capacitor
+      run: npx cap sync android
+
+    - name: Update version code
+      run: |
+        sed -i "s/versionCode [0-9]*/versionCode ${{ github.run_number }}/g" android/app/build.gradle
+
+    - name: Build APK
+      working-directory: android
+      run: |
+        chmod +x gradlew
+        ./gradlew assembleDebug --no-daemon --stacktrace
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: runway-v${{ github.run_number }}
+        path: android/app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+
+    - name: Commit Android files (if new)
+      if: github.event_name == 'push'
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add android/ || true
+        git diff --staged --quiet || git commit -m "Auto-generate Android platform files [skip ci]"
+        git push || true
+      continue-on-error: true
